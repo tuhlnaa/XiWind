@@ -44,8 +44,6 @@ class DRModel(nn.Module):
 		return self.classifier(x)
 
 if __name__ == '__main__':
-	torch.set_default_dtype(torch.float32)
-	print(torch.tensor([1.234, 3]).dtype)
 	batch_size = 32
 	device = ("cuda"
 			  if torch.cuda.is_available()
