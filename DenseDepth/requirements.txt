@@ -1,0 +1,20 @@
+# DenseDepth requirements
+# Usage: pip install -r requirements.txt
+
+# Base ------------------------------------------------------------------------
+h5py
+numpy
+opencv-python
+torch
+torchvision
+torchinfo
+torchmetrics
+
+# Logging ---------------------------------------------------------------------
+tensorboard
+
+# Plotting --------------------------------------------------------------------
+matplotlib
+
+# Export ----------------------------------------------------------------------
+onnxruntime-gpu
