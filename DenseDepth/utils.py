@@ -1,5 +1,4 @@
-﻿import cv2
-import h5py
+﻿import h5py
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
@@ -90,48 +89,6 @@ def apply_colormap(tensor, min_val=10, max_val=1000, colormap='viridis'):
 	depth = depth.permute(0, 3, 1, 2)
 
 	return depth
-
-
-def load_from_checkpoint(ckpt, model, optimizer, epochs, loss_meter=None):
-	checkpoint = torch.load(ckpt)
-	ckpt_epoch = epochs - (checkpoint["epoch"] + 1)
-	if ckpt_epoch <= 0:
-		raise ValueError("Epochs provided: {}, epochs completed in ckpt: {}".format(epochs, 
-			checkpoint["epoch"] + 1))
-
-	model.load_state_dict(checkpoint["model_state_dict"])
-	optimizer.load_state_dict(checkpoint["optim_state_dict"])
-
-	return model, optimizer, ckpt_epoch
-
-
-def init_or_load_model(depthmodel, enc_pretrain, epochs, lr, ckpt=None, device=torch.device("cuda:0"), 
-	loss_meter=None):
-
-	if ckpt is not None:
-		checkpoint = torch.load(ckpt)
-
-	model = depthmodel(encoder_pretrained=enc_pretrain)
-
-	if ckpt is not None:
-		model.load_state_dict(checkpoint["model_state_dict"])
-
-	model = model.to(device)
-
-	optimizer = torch.optim.Adam(model.parameters(), lr=lr)
-
-	if ckpt is not None:
-		optimizer.load_state_dict(checkpoint["optim_state_dict"])
-
-	start_epoch = 0
-	if ckpt is not None:
-		start_epoch = checkpoint["epoch"] + 1
-
-		if start_epoch <= 0:
-			raise ValueError("Epochs provided: {}, epochs completed in ckpt: {}".format(epochs, 
-				checkpoint["epoch"] + 1))
-
-	return model, optimizer, start_epoch
 
 
 def compute_depth_estimation_metrics(true_depth, predicted_depth):
