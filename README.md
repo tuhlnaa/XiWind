@@ -16,7 +16,7 @@ Coming soon
 
 | Model                                                                                                                                      | size<br><sup>(pixels) | PyTorch<br><sup>(ms) | TorchScript<br><sup>(ms) | ONNX<br><sup>(ms) | TensorRT<br><sup>(ms) | F1-Score<br><sup>weighted avg | F1-Score<br><sup>macro avg |
 | ------------------------------------------------------------------------------------------------------------------------------------------ | :-------------------: | :------------------: | :----------------------: | :---------------: | :-------------------: | :---------------------------: | :------------------------: |
-| [MobileNetV2<sub>base</sub>](https://github.com/tuhlnaa/Kaggle-Side-Project-XiWind/tree/main/Diabetic%20Retinopathy%20via/inference_model) |        224×224        |       6.3~5.3        |         3.6~2.8          |      4.1~3.2      |        1.5~1.2        |             0.97              |            0.97            |
+| [MobileNetV2<sub>base</sub>](https://github.com/tuhlnaa/Kaggle-Side-Project-XiWind/tree/main/Diabetic%20Retinopathy%20via/inference_model) |        224×224        |         5.5          |           3.2            |        3.5        |          1.3          |             0.97              |            0.97            |
 
 <br><br>
 
@@ -33,6 +33,7 @@ Coming soon
 
 | Model      | size<br><sup>(pixels) | PyTorch<br><sup>(ms) | TorchScript<br><sup>(ms) | ONNX<br><sup>(ms) | TensorRT<br><sup>(ms) | $\delta _{1}$ | rmse<br> |
 | ---------- | :-------------------: | :------------------: | :----------------------: | :---------------: | :-------------------: | :-----------: | :------: |
-| DenseDepth |        480×640        |                      |                          |                   |                       |               |          |
+| DenseDepth |        480×640        |          24          |            90            |        50         |          35           |     0.81      |  0.071   |
+
 
 
