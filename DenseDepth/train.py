@@ -1,22 +1,17 @@
-﻿"""Training method for High Quality Monocular Depth Estimation"""
-
-import time
-import cv2
+﻿import time
 import torch
 import torchvision.utils as vision_utils
 
 from pathlib import Path
 from torch.utils.tensorboard import SummaryWriter
+from torchvision.utils import make_grid
 from torchmetrics.functional.image import structural_similarity_index_measure
 
-from data import prepare_data_tensorflow
+from data import prepare_data_h5
 from model import DenseDepth
-from losses import ssim
 from losses import compute_depth_loss
-from utils import AverageMeter, depth_norm, apply_colormap, load_from_checkpoint, init_or_load_model
+from utils import apply_colormap
 
-import numpy as np
-import matplotlib.pyplot as plt
 
 class Logger:
 	def __init__(self, log_dir, checkpoint_dir):
@@ -70,21 +65,22 @@ def train(model, device, train_loader, optimizer, criterion, theta):
 	
 	for batch_idx, data in enumerate(train_loader):
 		images, target = data["image"].to(device), data["depth"].to(device)
-		normalized_target = depth_norm(target)
 		optimizer.zero_grad()     # Reset gradients
 		output = model(images)	  # Forward pass
-		
+
+		normalized_target = target
+		normalized_output = output
+
 		# Compute loss
-		loss_l1 = criterion(output, normalized_target)  
+		loss_l1 = criterion(normalized_output, normalized_target)  
 		loss_ssim = torch.clamp(
-			(1 - structural_similarity_index_measure(output, 1 / normalized_target, data_range=1)) * 0.5, 
-			#(1 - ssim(output, normalized_target, 1000.0 / 10.0)) * 0.5, 
+			(1 - structural_similarity_index_measure(normalized_target, normalized_output, data_range=1)) * 0.5, 
 			min=0, max=1)
-		loss_gradient = compute_depth_loss(1 / normalized_target, output, device=device)
+		loss_gradient = compute_depth_loss(normalized_target, normalized_output, device=device)
 		loss_combined = ((theta * torch.mean(loss_l1)) + 
-						 (1.0 * loss_ssim) + 
-						 (0.1 * torch.mean(loss_gradient)))
-		
+							(1.0 * loss_ssim) + 
+							(1.0 * torch.mean(loss_gradient)))
+
 		loss_combined.backward()  # Backward pass
 		optimizer.step()		  # Update parameters
 
@@ -102,15 +98,17 @@ def validate(model, device, loader, criterion, epoch, theta, logger):
 	with torch.no_grad():
 		for batch_idx, data in enumerate(loader):
 			images, target = data["image"].to(device), data["depth"].to(device)
-			normalized_target = depth_norm(target)
 			output = model(images)
 			
+			normalized_target = target
+			normalized_output = output
+
 			# Compute loss
-			loss_l1 = criterion(output, normalized_target)  
+			loss_l1 = criterion(normalized_output, normalized_target)  
 			loss_ssim = torch.clamp(
-				(1 - structural_similarity_index_measure(1 / normalized_target, output, data_range=1)) * 0.5, 
+				(1 - structural_similarity_index_measure(normalized_target, normalized_output, data_range=1)) * 0.5, 
 				min=0, max=1)
-			loss_gradient = compute_depth_loss(1 / normalized_target, output, device=device)
+			loss_gradient = compute_depth_loss(normalized_target, normalized_output, device=device)
 			loss_combined = ((theta * torch.mean(loss_l1)) + 
 							 (1.0 * loss_ssim) + 
 							 (1.0 * torch.mean(loss_gradient)))
@@ -122,11 +120,11 @@ def validate(model, device, loader, criterion, epoch, theta, logger):
 				output = torch.clamp(output, 0, 1)
 				logger.add_image(
 					"Model Outputs", 
-					vision_utils.make_grid(apply_colormap(output), nrow=6, normalize=False), 
+					make_grid(apply_colormap(output), nrow=6, normalize=False), 
 					epoch)
 				logger.add_image(
 					"Different", 
-					vision_utils.make_grid(apply_colormap(torch.abs(output - (1 / normalized_target))), nrow=6, normalize=False), 
+					make_grid(apply_colormap(torch.abs(output - target)), nrow=6, normalize=False), 
 					epoch)	
 				
 		# Visualize the first batch of images and results at the start of validate	
@@ -135,11 +133,11 @@ def validate(model, device, loader, criterion, epoch, theta, logger):
 			images, target = data["image"].to(device), data["depth"].to(device)
 			logger.add_image(
 				"Images", 
-				vision_utils.make_grid(images, nrow=6, normalize=False),
+				make_grid(images, nrow=6, normalize=False),
 				epoch)
 			logger.add_image(
 				"Target Depth Maps", 
-				vision_utils.make_grid(apply_colormap(target / 1000), nrow=6, normalize=False),
+				make_grid(apply_colormap(target), nrow=6, normalize=False),
 				epoch)
 
 	return total_loss / total_samples		
@@ -147,9 +145,9 @@ def validate(model, device, loader, criterion, epoch, theta, logger):
 
 def main():
 	# Define configuration parameters directly
-	epochs = 27                # number of epochs for training
+	epochs = 30                # number of epochs for training
 	lr = 0.0001                # initial learning rate
-	batch_size = 4             # Batch size
+	batch_size = 1             # Batch size
 	checkpoint = ""            # path to last saved checkpoint (empty string indicates none)
 	resume_epoch = -1          # epoch to resume training (-1 indicates start from beginning)
 	device = "cuda"            # device to run training ('cuda' or 'cpu')
@@ -160,27 +158,17 @@ def main():
 	
 	root_dir = Path(__file__).parent
 	checkpoint_dir = root_dir / "checkpoint"
-	rgb_dir = (root_dir / "dataset/ESPADA_png_RGB/ESPADA_PH/TRAIN", 
-			   root_dir / "dataset/ESPADA_png_RGB/ESPADA_PH/VAL")
-	depth_dir = (root_dir / "dataset/ESPADA_depth_npy/ESPADA_PH/TRAIN", 
-				 root_dir / "dataset/ESPADA_depth_npy/ESPADA_PH/VAL")
-	dir = (root_dir / "dataset/nyudepthv2/train", 
+	data_dir = (root_dir / "dataset/nyudepthv2/train", 
 		   root_dir / "dataset/nyudepthv2/val")
 	logger = Logger('runs/experiment_DenseDepth', checkpoint_dir)
 
 	# Training utils
-	batch_size = batch_size
-	model_prefix = "densedepth_"
 	device = ("cuda"
 			  if torch.cuda.is_available() 
 			  else "mps"
 			  if torch.backends.mps.is_available()
 			  else "cpu")
-	save_count = 0
-	epoch_loss = []
-	batch_loss = []
-	sum_loss = 0
-	train_loader, test_loader = prepare_data_tensorflow(dir, batch_size=batch_size)
+	train_loader, test_loader = prepare_data_h5(data_dir, batch_size=batch_size)
 	
 	# Model, Optimizer, Scheduler, Loss function initialization
 	model = DenseDepth(encoder_pretrained=encoder_pretrained).to(device)

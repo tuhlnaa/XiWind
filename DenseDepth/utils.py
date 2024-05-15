@@ -7,13 +7,12 @@ import matplotlib.pyplot as plt
 from PIL import Image
 from torchvision import transforms
 
-
 def depth_norm(depth, max_depth=1000.0):
 	return (max_depth / depth).to(torch.float32)
 
 
 def load_image(file_path):
-	img = Image.open(file_path).convert('L')  # Convert to grayscale
+	img = Image.open(file_path)#.convert('L')  # Convert to grayscale
 	transform = transforms.ToTensor()
 	return transform(img).unsqueeze(0)        # Add batch dimension
 
@@ -66,23 +65,6 @@ def show_depth_map(depth_map, title="Depth Map"):
 	plt.show()
 
 
-class AverageMeter(object):
-	def __init__(self):
-		self.reset()
-
-	def reset(self):
-		self.val = 0
-		self.avg = 0
-		self.sum = 0
-		self.count = 0
-
-	def update(self, val, n=1):
-		self.val = val
-		self.sum += val * n
-		self.count += n
-		self.avg = self.sum / self.count
-
-
 def apply_colormap(tensor, min_val=10, max_val=1000, colormap='viridis'):
 	"""
 	Applies a colormap to a 4-channel (b, 1, h, w) tensor and returns a 3-channel (b, 3, h, w) image tensor.
@@ -95,29 +77,17 @@ def apply_colormap(tensor, min_val=10, max_val=1000, colormap='viridis'):
 	Returns:
 	torch.Tensor: A 3-channel (b, 3, h, w) image tensor.
 	"""
-	# Ensure tensor is on CPU and convert to NumPy array
+	# Apply colormap (Remove the channel dimension for colormapping)
 	tensor = tensor.cpu().numpy()
-
-	# Normalize the tensor
-	# if min_val is None:
-	# 	min_val = tensor.min()
-	# if max_val is None:
-	# 	max_val = tensor.max()
-	# if min_val != max_val:
-	# 	tensor = (tensor - min_val) / (max_val - min_val)
-	# else:
-	# 	tensor = np.zeros_like(tensor)
-
-	# Apply colormap
 	cm = plt.get_cmap(colormap)
-	colored_image = cm(tensor.squeeze(1))  # Remove the channel dimension for colormapping
+	colored_image = cm(tensor.squeeze(1))
 	
 	# Drop the alpha channel and convert to RGB
 	colored_image_rgb = colored_image[..., :3]
 	
 	# Convert back to PyTorch tensor and reorder dimensions to (b, c, h, w)
 	depth = torch.from_numpy(colored_image_rgb)
-	depth = depth.permute(0, 3, 1, 2)  # Change dimension order
+	depth = depth.permute(0, 3, 1, 2)
 
 	return depth
 
@@ -164,17 +134,6 @@ def init_or_load_model(depthmodel, enc_pretrain, epochs, lr, ckpt=None, device=t
 	return model, optimizer, start_epoch
 
 
-def load_images(image_files):
-	loaded_images = []
-
-	for file in image_files:
-		x = np.clip(np.asarray(Image.open(file).resize((640, 480)), dtype=float)/255, 0, 1).transpose(2, 0, 1)
-		#x = np.clip(np.asarray(Image.open(file).resize((320, 240)), dtype=float)/255, 0, 1).transpose(2, 0, 1)
-		loaded_images.append(x)
-
-	return np.stack(loaded_images, axis=0)
-
-
 def compute_depth_estimation_metrics(true_depth, predicted_depth):
 	"""
 	Compute error metrics for depth estimation using PyTorch.
@@ -195,6 +154,8 @@ def compute_depth_estimation_metrics(true_depth, predicted_depth):
 	  - 'rmse': The root mean square error.
 	  - 'log_10': The mean log10 error.
 	"""
+	true_depth = torch.clamp(true_depth, 0, 1)
+	predicted_depth = torch.clamp(predicted_depth, 0, 1)
 
 	# Ensure the depth maps are flattened to simplify calculations
 	true_depth = true_depth.view(-1)
@@ -212,9 +173,9 @@ def compute_depth_estimation_metrics(true_depth, predicted_depth):
 	# Calculate RMSE
 	rmse = torch.sqrt(torch.mean((true_depth - predicted_depth) ** 2))
 
-	# Calculate mean log10 error
-	log_10 = torch.mean(torch.abs(torch.log10(true_depth) - torch.log10(predicted_depth)))
-
+	# Calculate mean log10 error (handle zeros)
+	log_10 = torch.mean(torch.abs(torch.log10(true_depth + 1e-6) - torch.log10(predicted_depth + 1e-6)))
+	
 	return {
 		'a1': a1.item(),
 		'a2': a2.item(),

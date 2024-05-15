@@ -1,6 +1,7 @@
 ﻿import torch
 import torch.nn.functional as F
 import numpy as np
+from torchmetrics.functional.image import image_gradients
 
 def gaussian(window_size, sigma):
 	"""Generate a Gaussian window normalized to sum to 1.
@@ -80,7 +81,7 @@ def ssim(img1, img2, val_range, window_size=11, window=None, size_average=True, 
 	return result
 
 
-def calculate_image_gradients_V1(image_tensor, device):
+def calculate_image_gradients(image_tensor, device):
 	"""
 	Calculate horizontal and vertical gradients for an image tensor.
 	Calculates gradients by simple differences between adjacent pixelsadjacent pixels.
@@ -113,7 +114,7 @@ def calculate_image_gradients_V1(image_tensor, device):
 	return padded_vertical, padded_horizontal
 
 
-def calculate_image_gradients(image_tensor, device):
+def calculate_image_gradients_sobel(image_tensor, device):
 	"""
 	Calculate horizontal and vertical gradients for an image tensor.
 	Uses Sobel operators to compute gradients, which apply a weighted sum across a neighborhood and are more robust to noise.
@@ -126,16 +127,16 @@ def calculate_image_gradients(image_tensor, device):
 	- tuple[torch.Tensor, torch.Tensor]: A tuple of tensors (dy, dx) representing vertical and horizontal gradients.
 	"""
 
-	# Reverse the Sobel filters to align the gradient direction with the simple difference method
-	sobel_x = torch.tensor([[-1, 0, 1], 
-							[-2, 0, 2], 
-							[-1, 0, 1]], dtype=torch.float32, device=device).view(1, 1, 3, 3)
-	sobel_y = torch.tensor([[-1, -2, -1], 
-							[0, 0, 0], 
-							[1, 2, 1]], dtype=torch.float32, device=device).view(1, 1, 3, 3)
+	# # Reverse the Sobel filters to align the gradient direction with the simple difference method
+	# sobel_x = torch.tensor([[-1, 0, 1], 
+	# 						[-2, 0, 2], 
+	# 						[-1, 0, 1]], dtype=torch.float32, device=device).view(1, 1, 3, 3)
+	# sobel_y = torch.tensor([[-1, -2, -1], 
+	# 						[0, 0, 0], 
+	# 						[1, 2, 1]], dtype=torch.float32, device=device).view(1, 1, 3, 3)
 	
-	# sobel_x = torch.tensor([[1, 0, -1], [2, 0, -2], [1, 0, -1]], dtype=torch.float32, device=device).view(1, 1, 3, 3)
-	# sobel_y = torch.tensor([[1, 2, 1], [0, 0, 0], [-1, -2, -1]], dtype=torch.float32, device=device).view(1, 1, 3, 3)
+	sobel_x = torch.tensor([[1, 0, -1], [2, 0, -2], [1, 0, -1]], dtype=torch.float32, device=device).view(1, 1, 3, 3)
+	sobel_y = torch.tensor([[1, 2, 1], [0, 0, 0], [-1, -2, -1]], dtype=torch.float32, device=device).view(1, 1, 3, 3)
 
 	if image_tensor.shape[1] > 1:
 		sobel_x = sobel_x.repeat(image_tensor.shape[1], 1, 1, 1)
@@ -164,9 +165,8 @@ def compute_depth_loss(ground_truth, prediction, device="cuda", theta=0.1, maxDe
 	- torch.Tensor: The computed loss.
 	"""
 	# Calculate gradients
-	dy_true, dx_true = calculate_image_gradients(ground_truth, device)
-	dy_pred, dx_pred = calculate_image_gradients(prediction, device)
-	
+	dy_true, dx_true = image_gradients(ground_truth)
+	dy_pred, dx_pred = image_gradients(prediction)
 	edge_loss = torch.mean(torch.abs(dy_pred - dy_true) + torch.abs(dx_pred - dx_true), dim=1)
 
 	return edge_loss
@@ -178,42 +178,50 @@ def main():
 	from torchmetrics.functional.image import structural_similarity_index_measure
 	from utils import load_image
 	
-	img1 = load_image('img_drone_1_RGB_0_1622304973074737100.png')
-	img2 = load_image('img_drone_1_RGB_0_1622304972077115100.png')
+	img1 = load_image('img_drone_1_RGB_0_1622304973074737100.png').to('cuda')
+	img2 = load_image('img_drone_1_RGB_0_1622304972077115100.png').to('cuda')
 	print(img1.shape) # Output: [1, 1, 480, 640]
 
-	ssim_index = ssim(img1, img2, val_range=255)  # Pixel values in [0, 255] for typical 8-bit images
 	ssim_index = structural_similarity_index_measure(img1, img2, data_range=255)
+	#ssim_index = ssim(img1, img2, val_range=255)
 	print(f"SSIM Index: {ssim_index.item()}")
-	print(ssim_index)
+	
+	# =========================================================
+	# 【compute_depth_loss()】
+	edge_loss = compute_depth_loss(img1, img2)
+	print(f"Edge Loss: {torch.mean(edge_loss)}")
 	
 	# =========================================================
 	# 【calculate_image_gradients()】
 	device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
   
 	test_image = load_image('001.jpg').to(device)
+	print(test_image.shape)
 	
 	# Calculate gradients
-	v_gradient, h_gradient = calculate_image_gradients(test_image, device)
+	v_gradient, h_gradient = image_gradients(test_image)
+	#v_gradient, h_gradient = calculate_image_gradients(test_image, device)
+	#v_gradient, h_gradient = calculate_image_gradients_sobel(test_image, device)
 	
 	# Display results
-	v_gradient = v_gradient.squeeze().cpu().numpy()
-	h_gradient = h_gradient.squeeze().cpu().numpy()
+	v_gradient = v_gradient.squeeze().permute(1, 2, 0).cpu().numpy()
+	h_gradient = h_gradient.squeeze().permute(1, 2, 0).cpu().numpy()
+	test_image = test_image.squeeze().permute(1, 2, 0).cpu().numpy()
 	
 	plt.figure(figsize=(12, 4))
 	plt.subplot(1, 3, 1)
 	plt.title('Original Image')
-	plt.imshow(test_image.squeeze().cpu().numpy(), cmap='gray')
+	plt.imshow(test_image)
 	plt.axis('off')
 
 	plt.subplot(1, 3, 2)
 	plt.title('Vertical Gradient')
-	plt.imshow(v_gradient, cmap='gray')
+	plt.imshow(v_gradient)
 	plt.axis('off')
 
 	plt.subplot(1, 3, 3)
 	plt.title('Horizontal Gradient')
-	plt.imshow(h_gradient, cmap='gray')
+	plt.imshow(h_gradient)
 	plt.axis('off')
 
 	plt.show()

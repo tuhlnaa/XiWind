@@ -3,20 +3,22 @@ High Quality Monocular Depth Estimation via Transfer Learning
 https://arxiv.org/abs/1812.11941
 """
 
-
+import onnx
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from pathlib import Path
+from typing import List
 from torchinfo import summary
 from torchvision.models import densenet161, DenseNet161_Weights
 
 class Encoder(nn.Module):
-	def __init__(self, encoder_pretrained=True):
+	def __init__(self, encoder_pretrained=DenseNet161_Weights.IMAGENET1K_V1):
 		super(Encoder, self).__init__()
-		self.densenet = densenet161(weights=DenseNet161_Weights.IMAGENET1K_V1)
+		self.densenet = densenet161(weights=encoder_pretrained)
 
-	def forward(self, x):
+	def forward(self, x: torch.Tensor):
 		feature_maps = [x]
 		# for key, value in self.densenet.features._modules.items():
 		# 	feature_maps.append(value(feature_maps[-1]))
@@ -59,7 +61,7 @@ class Decoder(nn.Module):
 		self.upsample4 = Upsample(features // scales[3] + 96, features // (scales[3] * 2))
 		self.conv3 = nn.Conv2d(features // (scales[3] * 2), 1, 3, 1, 1)
 
-	def forward(self, features):
+	def forward(self, features: List[torch.Tensor]):
 		x_block0 = features[3]
 		x_block1 = features[4]
 		x_block2 = features[6]
@@ -75,9 +77,8 @@ class Decoder(nn.Module):
 		return self.conv3(x4)
 
 
-# High Quality Monocular Depth Estimation via Transfer Learning
 class DenseDepth(nn.Module):
-	def __init__(self, encoder_pretrained=True):
+	def __init__(self, encoder_pretrained=DenseNet161_Weights.IMAGENET1K_V1):
 		super(DenseDepth, self).__init__()
 
 		self.encoder = Encoder(encoder_pretrained=encoder_pretrained)
@@ -87,10 +88,39 @@ class DenseDepth(nn.Module):
 		x = self.encoder(x)
 		x = self.decoder(x)
 		return x
-	
 
-if __name__ == '__main__':
-	batch_size = 16
+
+def load_model_checkpoint(model, checkpoint_path, device):
+	checkpoint = torch.load(checkpoint_path, map_location=device)
+	model.load_state_dict(checkpoint['model_state_dict'])
+
+
+def convert_to_torchscript(model, scripted_model_path, device):
+	model.eval()
+	scripted_model = torch.jit.script(model)
+	scripted_model.save(scripted_model_path)
+
+
+def convert_to_onnx(model, onnx_model_path, device):
+	model.eval()
+	x = torch.rand((1, 3, 480, 640), dtype=torch.float32).to(device)
+	torch.onnx.export(
+		model,
+		x,
+		onnx_model_path,
+		export_params=True,
+		opset_version=17,
+		do_constant_folding=True,
+		input_names=['input'],
+		output_names=['output'],
+		dynamic_axes={'input': {0: 'batch_size'}, 'output': {0: 'batch_size'}}
+	)
+	onnx_model = onnx.load(onnx_model_path)
+	onnx.checker.check_model(onnx_model)
+
+
+def main():
+	batch_size = 8
 	device = ("cuda"
 			  if torch.cuda.is_available()
 			  else "mps"
@@ -98,48 +128,66 @@ if __name__ == '__main__':
 			  else "cpu")
 
 	model = DenseDepth().to(device)
-	summary(model, input_size=(batch_size, 3, 224, 224))
+	summary(model, input_size=(batch_size, 3, 480, 640))
+
+	root_dir = Path(__file__).parent
+	checkpoint_path = root_dir / 'checkpoint' / 'model_epoch_30.pth'
+	load_model_checkpoint(model, checkpoint_path, device)
+
+	scripted_model_path = root_dir / 'inference_model' / 'DenseDepth_scripted_model.pt'
+	convert_to_torchscript(model, scripted_model_path, device)
+
+	onnx_model_path = root_dir / 'inference_model' / 'DenseDepth_scripted_model.onnx'
+	convert_to_onnx(model, onnx_model_path, device)
+	
+	# Convert to TensorRT
+	# trtexec --onnx=DenseDepth_scripted_model.onnx --saveEngine=DenseDepth_scripted_model.trt --minShapes=input:1x3x480x640 --optShapes=input:1x3x480x640 --maxShapes=input:1x3x480x640 --buildOnly 
+
+
+if __name__ == '__main__':
+	main()
+
 	
 '''
 ====================================================================================================
 Layer (type:depth-idx)                             Output Shape              Param #
 ====================================================================================================
-DenseDepth                                         [16, 1, 112, 112]         --
-├─Encoder: 1-1                                     [16, 3, 224, 224]         --
+DenseDepth                                         [8, 1, 240, 320]          --
+├─Encoder: 1-1                                     [8, 3, 480, 640]          --
 │    └─DenseNet: 2-1                               --                        2,209,000
 │    │    └─Sequential: 3-1                        --                        26,472,000
-├─Decoder: 1-2                                     [16, 1, 112, 112]         --
-│    └─Conv2d: 2-2                                 [16, 1104, 7, 7]          2,438,736
-│    └─Upsample: 2-3                               [16, 552, 14, 14]         --
-│    │    └─Conv2d: 3-2                            [16, 552, 14, 14]         7,392,936
-│    │    └─LeakyReLU: 3-3                         [16, 552, 14, 14]         --
-│    │    └─Conv2d: 3-4                            [16, 552, 14, 14]         2,742,888
-│    │    └─LeakyReLU: 3-5                         [16, 552, 14, 14]         --
-│    └─Upsample: 2-4                               [16, 276, 28, 28]         --
-│    │    └─Conv2d: 3-6                            [16, 276, 28, 28]         1,848,372
-│    │    └─LeakyReLU: 3-7                         [16, 276, 28, 28]         --
-│    │    └─Conv2d: 3-8                            [16, 276, 28, 28]         685,860
-│    │    └─LeakyReLU: 3-9                         [16, 276, 28, 28]         --
-│    └─Upsample: 2-5                               [16, 138, 56, 56]         --
-│    │    └─Conv2d: 3-10                           [16, 138, 56, 56]         462,162
-│    │    └─LeakyReLU: 3-11                        [16, 138, 56, 56]         --
-│    │    └─Conv2d: 3-12                           [16, 138, 56, 56]         171,534
-│    │    └─LeakyReLU: 3-13                        [16, 138, 56, 56]         --
-│    └─Upsample: 2-6                               [16, 69, 112, 112]        --
-│    │    └─Conv2d: 3-14                           [16, 69, 112, 112]        145,383
-│    │    └─LeakyReLU: 3-15                        [16, 69, 112, 112]        --
-│    │    └─Conv2d: 3-16                           [16, 69, 112, 112]        42,918
-│    │    └─LeakyReLU: 3-17                        [16, 69, 112, 112]        --
-│    └─Conv2d: 2-7                                 [16, 1, 112, 112]         622
+├─Decoder: 1-2                                     [8, 1, 240, 320]          --
+│    └─Conv2d: 2-2                                 [8, 1104, 15, 20]         2,438,736
+│    └─Upsample: 2-3                               [8, 552, 30, 40]          --
+│    │    └─Conv2d: 3-2                            [8, 552, 30, 40]          7,392,936
+│    │    └─LeakyReLU: 3-3                         [8, 552, 30, 40]          --
+│    │    └─Conv2d: 3-4                            [8, 552, 30, 40]          2,742,888
+│    │    └─LeakyReLU: 3-5                         [8, 552, 30, 40]          --
+│    └─Upsample: 2-4                               [8, 276, 60, 80]          --
+│    │    └─Conv2d: 3-6                            [8, 276, 60, 80]          1,848,372
+│    │    └─LeakyReLU: 3-7                         [8, 276, 60, 80]          --
+│    │    └─Conv2d: 3-8                            [8, 276, 60, 80]          685,860
+│    │    └─LeakyReLU: 3-9                         [8, 276, 60, 80]          --
+│    └─Upsample: 2-5                               [8, 138, 120, 160]        --
+│    │    └─Conv2d: 3-10                           [8, 138, 120, 160]        462,162
+│    │    └─LeakyReLU: 3-11                        [8, 138, 120, 160]        --
+│    │    └─Conv2d: 3-12                           [8, 138, 120, 160]        171,534
+│    │    └─LeakyReLU: 3-13                        [8, 138, 120, 160]        --
+│    └─Upsample: 2-6                               [8, 69, 240, 320]         --
+│    │    └─Conv2d: 3-14                           [8, 69, 240, 320]         145,383
+│    │    └─LeakyReLU: 3-15                        [8, 69, 240, 320]         --
+│    │    └─Conv2d: 3-16                           [8, 69, 240, 320]         42,918
+│    │    └─LeakyReLU: 3-17                        [8, 69, 240, 320]         --
+│    └─Conv2d: 2-7                                 [8, 1, 240, 320]          622
 ====================================================================================================
 Total params: 44,612,411
 Trainable params: 44,612,411
 Non-trainable params: 0
-Total mult-adds (Units.GIGABYTES): 258.82
+Total mult-adds (Units.GIGABYTES): 792.28
 ====================================================================================================
-Input size (MB): 9.63
-Forward/backward pass size (MB): 5605.16
+Input size (MB): 29.49
+Forward/backward pass size (MB): 17158.66
 Params size (MB): 169.61
-Estimated Total Size (MB): 5784.41
+Estimated Total Size (MB): 17357.76
 ====================================================================================================
 '''

@@ -51,77 +51,77 @@ class DepthDataset(Dataset):
 		return sample
 	
 
-def load_file_pairs(rgb_dir, depth_dir):
-	"""
-	Generator function to yield RGB and depth file pairs.
-	"""
-	rgb_dir = rgb_dir
-	depth_dir = depth_dir
+# def load_file_pairs(rgb_dir, depth_dir):
+# 	"""
+# 	Generator function to yield RGB and depth file pairs.
+# 	"""
+# 	rgb_dir = rgb_dir
+# 	depth_dir = depth_dir
 
-	#rgb_files = sorted([x for x in rgb_dir.rglob('*_RGB_*.png') if x.is_file()])
-	#depth_files = sorted([x for x in depth_dir.rglob('*_depth_*.npy') if x.is_file()])
+# 	#rgb_files = sorted([x for x in rgb_dir.rglob('*_RGB_*.png') if x.is_file()])
+# 	#depth_files = sorted([x for x in depth_dir.rglob('*_depth_*.npy') if x.is_file()])
 	
-	rgb_files = sorted([x for x in rgb_dir.rglob('*.jpg') if x.is_file()])
-	depth_files = sorted([x for x in depth_dir.rglob('*.png') if x.is_file()])
+# 	rgb_files = sorted([x for x in rgb_dir.rglob('*.jpg') if x.is_file()])
+# 	depth_files = sorted([x for x in depth_dir.rglob('*.png') if x.is_file()])
 	
-	for rgb_file, depth_file in zip(rgb_files, depth_files):
-		yield rgb_file, depth_file
+# 	for rgb_file, depth_file in zip(rgb_files, depth_files):
+# 		yield rgb_file, depth_file
 
 
-class DepthIterableDataset_NYU_Kaggle(IterableDataset):
-	def __init__(self, rgb_dir, depth_dir, transform=None, shuffle=True):
-		"""
-		Args:
-			rgb_dir (string): Directory with all the RGB images.
-			depth_dir (string): Directory with all the depth files.
-			transform (callable, optional): Optional transform to be applied on a sample.
-			shuffle (bool, optional): Whether to shuffle the data, default is True.
-		"""
-		self.rgb_dir = rgb_dir
-		self.depth_dir = depth_dir
-		self.transform = transform
-		self.shuffle = shuffle
-		self.file_pairs = list(load_file_pairs(rgb_dir, depth_dir))
+# class DepthIterableDataset_NYU_Kaggle(IterableDataset):
+# 	def __init__(self, rgb_dir, depth_dir, transform=None, shuffle=True):
+# 		"""
+# 		Args:
+# 			rgb_dir (string): Directory with all the RGB images.
+# 			depth_dir (string): Directory with all the depth files.
+# 			transform (callable, optional): Optional transform to be applied on a sample.
+# 			shuffle (bool, optional): Whether to shuffle the data, default is True.
+# 		"""
+# 		self.rgb_dir = rgb_dir
+# 		self.depth_dir = depth_dir
+# 		self.transform = transform
+# 		self.shuffle = shuffle
+# 		self.file_pairs = list(load_file_pairs(rgb_dir, depth_dir))
 
-	def __iter__(self):
-		total_size = len(self.file_pairs)
-		worker_info = torch.utils.data.get_worker_info()
-		start, end = 0, total_size  # Default for single-process
+# 	def __iter__(self):
+# 		total_size = len(self.file_pairs)
+# 		worker_info = torch.utils.data.get_worker_info()
+# 		start, end = 0, total_size  # Default for single-process
 		
-		# In a worker process, split the workload
-		if worker_info is not None:
-			per_worker = int(math.ceil(total_size / float(worker_info.num_workers)))
-			worker_id = worker_info.id
-			start = worker_id * per_worker
-			end = min(start + per_worker, total_size)
+# 		# In a worker process, split the workload
+# 		if worker_info is not None:
+# 			per_worker = int(math.ceil(total_size / float(worker_info.num_workers)))
+# 			worker_id = worker_info.id
+# 			start = worker_id * per_worker
+# 			end = min(start + per_worker, total_size)
 			
-		# Shuffle the subset for each worker if shuffle is True
-		subset_file_pairs = self.file_pairs[start:end]
-		if self.shuffle:
-			random.shuffle(subset_file_pairs)
+# 		# Shuffle the subset for each worker if shuffle is True
+# 		subset_file_pairs = self.file_pairs[start:end]
+# 		if self.shuffle:
+# 			random.shuffle(subset_file_pairs)
 		
-		for rgb_path, depth_path in subset_file_pairs:
-			image = Image.open(rgb_path).convert('RGB')
-			depth = np.array(Image.open(depth_path).convert('L'))
-			#depth = np.load(depth_path)
-			sample = {'image': image, 'depth': depth}
-			if self.transform:
-				sample = self.transform(sample)
-			yield sample
+# 		for rgb_path, depth_path in subset_file_pairs:
+# 			image = Image.open(rgb_path).convert('RGB')
+# 			depth = np.array(Image.open(depth_path).convert('L'))
+# 			#depth = np.load(depth_path)
+# 			sample = {'image': image, 'depth': depth}
+# 			if self.transform:
+# 				sample = self.transform(sample)
+# 			yield sample
 		
 
 class DepthIterableDataset_NYU_TensorFlow(IterableDataset):
-	def __init__(self, dir, transform=None, shuffle=True):
+	def __init__(self, data_dir, transform=None, shuffle=True):
 		"""
 		Args:
-			dir (string): Directory with all the RGB images and depth files.
+			data_dir (string): Directory with all the RGB images and depth files.
 			transform (callable, optional): Optional transform to be applied on a sample.
 			shuffle (bool, optional): Whether to shuffle the data, default is True.
 		"""
-		self.dir = dir
+		self.data_dir = data_dir
 		self.transform = transform
 		self.shuffle = shuffle
-		self.file_pairs = list(sorted([x for x in dir.rglob('*.h5') if x.is_file()]))
+		self.file_pairs = list(sorted([x for x in data_dir.rglob('*.h5') if x.is_file()]))
 
 	def __iter__(self):
 		total_size = len(self.file_pairs)
@@ -183,8 +183,8 @@ class RandomChannelSwap():
 
 
 class ToTensor():
-	def __init__(self, is_test=False):
-		self.is_test = is_test
+	def __init__(self, is_train=True):
+		self.is_train = is_train
 		
 	def __call__(self, sample):
 		image, depth = sample['image'], sample['depth']
@@ -193,32 +193,36 @@ class ToTensor():
 		image = transforms.functional.to_tensor(image)
 		depth = transforms.functional.to_tensor(depth)
 		
-		# Depth Norm (maxDepth=1000cm)
-		depth = (depth - 0) / (10 - 0)
-		if self.is_test:
-			depth = depth / 1000
-		else:            
-			depth = depth * 1000
-		depth = torch.clamp(depth, 10, 1000)  # Ensure depth is in expected range
-		#depth = 1000 / depth
-		#depth = torch.clamp(depth, 0, 1).to(torch.float32)  # Ensure depth is in expected range
-		
+		# Depth Norm (maxDepth=1000cm) (we clip values to 10cm to avoid dividing by zero)
+		depth = torch.clamp((depth / 10), 0.01, 1)
 		return {'image': image, 'depth': depth}
 
 
 def get_transforms(is_train=True):
-	transforms_list = [ToTensor()]  # ToTensor(is_test=not is_train)
+	transforms_list = [ToTensor(is_train)]  # ToTensor(is_test=not is_train)
 	if is_train:
 		transforms_list.insert(1, RandomHorizontalFlip(p=0.5))
 		transforms_list.insert(2, RandomChannelSwap(0.5))
 	return transforms.Compose(transforms_list)
 	
 
-def prepare_data_kaggle(rgb_dir, depth_dir, batch_size=8, num_workers=1):
+# def prepare_data_kaggle(rgb_dir, depth_dir, batch_size=8, num_workers=1):
+# 	'''Load and Preprocess Dataset'''
+# 	# Initialize datasets
+# 	train_dataset = DepthIterableDataset_NYU_Kaggle(rgb_dir=rgb_dir[0], depth_dir=depth_dir[0], transform=get_transforms(is_train=True), shuffle=True)
+# 	test_dataset = DepthIterableDataset_NYU_Kaggle(rgb_dir=rgb_dir[1], depth_dir=depth_dir[1], transform=get_transforms(is_train=False), shuffle=False)
+
+# 	# Initialize data loaders
+# 	train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
+# 	test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
+# 	return train_loader, test_loader
+
+
+def prepare_data_h5(data_dir, batch_size=8, num_workers=1):
 	'''Load and Preprocess Dataset'''
 	# Initialize datasets
-	train_dataset = DepthIterableDataset_NYU_Kaggle(rgb_dir=rgb_dir[0], depth_dir=depth_dir[0], transform=get_transforms(is_train=True), shuffle=True)
-	test_dataset = DepthIterableDataset_NYU_Kaggle(rgb_dir=rgb_dir[1], depth_dir=depth_dir[1], transform=get_transforms(is_train=False), shuffle=False)
+	train_dataset = DepthIterableDataset_NYU_TensorFlow(data_dir[0], transform=get_transforms(is_train=True), shuffle=True)
+	test_dataset = DepthIterableDataset_NYU_TensorFlow(data_dir[1], transform=get_transforms(is_train=False), shuffle=False)
 
 	# Initialize data loaders
 	train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
@@ -226,61 +230,19 @@ def prepare_data_kaggle(rgb_dir, depth_dir, batch_size=8, num_workers=1):
 	return train_loader, test_loader
 
 
-def prepare_data_tensorflow(dir, batch_size=8, num_workers=1):
-	'''Load and Preprocess Dataset'''
-	# Initialize datasets
-	train_dataset = DepthIterableDataset_NYU_TensorFlow(dir=dir[0], transform=get_transforms(is_train=True), shuffle=True)
-	test_dataset = DepthIterableDataset_NYU_TensorFlow(dir=dir[1], transform=get_transforms(is_train=False), shuffle=False)
-
-	# Initialize data loaders
-	train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
-	test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
-	return train_loader, test_loader
-
-
-if __name__ == "__main__":
+def main():
 	root_dir = Path(__file__).parent
-	# rgb_dir = (root_dir / "dataset/ESPADA_png_RGB/ESPADA_PH/TRAIN", 
-	# 		   root_dir / "dataset/ESPADA_png_RGB/ESPADA_PH/VAL")
-	# depth_dir = (root_dir / "dataset/ESPADA_depth_npy/ESPADA_PH/TRAIN", 
-	# 			 root_dir / "dataset/ESPADA_depth_npy/ESPADA_PH/VAL")
-	
-	# train_loader, test_loader = prepare_data(rgb_dir, depth_dir, batch_size=4)
-	
-
-	dir = (root_dir / "dataset/nyudepthv2/train", 
-		   root_dir / "dataset/nyudepthv2/val")
-	train_loader, test_loader = prepare_data_tensorflow(dir, batch_size=8)
-
-	
-	# rgb_dir = (root_dir / "dataset/nyu_data/data/nyu2_train", 
-	# 		   root_dir / "dataset/nyu_data/data/nyu2_test")
-	# depth_dir = (root_dir / "dataset/nyu_data/data/nyu2_train", 
-	# 			 root_dir / "dataset/nyu_data/data/nyu2_test")
-	
-	# train_loader, test_loader = prepare_data_kaggle(rgb_dir, depth_dir, batch_size=4)
-
+	data_dir = (root_dir / "dataset/nyudepthv2/train", 
+		        root_dir / "dataset/nyudepthv2/val")
+	train_loader, test_loader = prepare_data_h5(data_dir, batch_size=4)
 
 	batch_counts = {}
 	for i, data in enumerate(test_loader):
 		images, depths = data['image'], data['depth']
 		batch_count = batch_counts.get(len(images), 0) + 1
 		batch_counts[len(images)] = batch_count
-		print(f'Batch images shape: {images.shape}, Batch labels shape: {depths.shape}')
+		#print(f'Batch images shape: {images.shape}, Batch labels shape: {depths.shape}')
 		print(f"Batch counts: {batch_counts}")
-
-		# print(depths.shape, depths.dtype)
-		# depths = 1000 / depths
-		# depths = 1 / depths
-		# depths = depths.permute(0, 2, 3, 1).cpu().numpy()   	
-		# for i in range(len(depths)):
-		# 	print(np.max(depths[i]), np.min(depths[i]))
-		# 	print(depths[i].shape, np.max(depths[i]), np.min(depths[i]), depths[i].dtype)
-		# 	plt.imshow(depths[i], cmap='rainbow', vmax=1, vmin=0)
-		# 	plt.title('Colored Tensor Image')
-		# 	#plt.axis('off')
-		# 	plt.show()
-
 
 	batch_counts = {}
 	depth_max, depth_min = 0, 1000
@@ -292,3 +254,5 @@ if __name__ == "__main__":
 		print(f"Batch counts: {batch_counts}", depth_max, depth_min)
 		
 
+if __name__ == "__main__":
+	main()
