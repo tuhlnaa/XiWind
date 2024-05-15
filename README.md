@@ -31,9 +31,10 @@ Coming soon
 
 **Speed <sub>GTX 1080 Ti</sub> (ms): batch-size 1**
 
-| Model      | size<br><sup>(pixels) | PyTorch<br><sup>(ms) | TorchScript<br><sup>(ms) | ONNX<br><sup>(ms) | TensorRT<br><sup>(ms) | $\delta _{1}$ | rmse<br> |
-| ---------- | :-------------------: | :------------------: | :----------------------: | :---------------: | :-------------------: | :-----------: | :------: |
-| DenseDepth |        480×640        |          24          |            90            |        50         |          35           |     0.81      |  0.071   |
+| Model                                                                                              | size<br><sup>(pixels) | PyTorch<br><sup>(ms) | TorchScript<br><sup>(ms) | ONNX<br><sup>(ms) | TensorRT<br><sup>(ms) | $\delta _{1}$ | rmse<br> |
+| -------------------------------------------------------------------------------------------------- | :-------------------: | :------------------: | :----------------------: | :---------------: | :-------------------: | :-----------: | :------: |
+| [DenseDepth](https://drive.google.com/drive/folders/1Y3lscMncLRFB8o2N4WGuozu64mUveeOC?usp=sharing) |        480×640        |          24          |            90            |        50         |          35           |     0.81      |  0.071   |
+
 
 
 
