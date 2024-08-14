@@ -1,5 +1,10 @@
-# Kaggle Side Project | XiWind
-Coming soon
+## Latest Updates:
+
+<p align="center">
+  <img alt="GitHub last commit" src="https://img.shields.io/github/last-commit/tuhlnaa/XiWind?style=for-the-badge">
+  <img alt="GitHub commit activity" src="https://img.shields.io/github/commit-activity/y/tuhlnaa/XiWind?style=for-the-badge">
+  <img alt="GitHub repo size" src="https://img.shields.io/github/repo-size/tuhlnaa/XiWind?style=for-the-badge">
+</p>
 
 <br><br>
 
