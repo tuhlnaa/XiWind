@@ -28,9 +28,9 @@
 
 **Speed <sub>GTX 1080 Ti</sub> (ms): batch-size 1**
 
-| Model                                                                                                                                      | size<br><sup>(pixels) | PyTorch<br><sup>(ms) | TorchScript<br><sup>(ms) | ONNX<br><sup>(ms) | TensorRT<br><sup>(ms) | F1-Score<br><sup>weighted avg | F1-Score<br><sup>macro avg |
-| ------------------------------------------------------------------------------------------------------------------------------------------ | :-------------------: | :------------------: | :----------------------: | :---------------: | :-------------------: | :---------------------------: | :------------------------: |
-| [MobileNetV2<sub>base</sub>](https://github.com/tuhlnaa/Kaggle-Side-Project-XiWind/tree/main/Diabetic%20Retinopathy%20via/inference_model) |        224×224        |         5.5          |           3.2            |        3.5        |          1.3          |             0.97              |            0.97            |
+| Model                                                                                                                 | size<br><sup>(pixels) | PyTorch<br><sup>(ms) | TorchScript<br><sup>(ms) | ONNX<br><sup>(ms) | TensorRT<br><sup>(ms) | F1-Score<br><sup>weighted avg | F1-Score<br><sup>macro avg |
+| --------------------------------------------------------------------------------------------------------------------- | :-------------------: | :------------------: | :----------------------: | :---------------: | :-------------------: | :---------------------------: | :------------------------: |
+| [MobileNetV2<sub>base</sub>](https://drive.google.com/drive/folders/1a_zJ2TO7rG4rCs4wOzV9WgKaeS-bOGj0?usp=drive_link) |        224×224        |         5.5          |           3.2            |        3.5        |          1.3          |             0.97              |            0.97            |
 
 <br><br>
 
