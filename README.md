@@ -1,10 +1,18 @@
 ## Latest Updates:
 
 <p align="center">
-  <img alt="GitHub last commit" src="https://img.shields.io/github/last-commit/tuhlnaa/XiWind?style=for-the-badge">
-  <img alt="GitHub commit activity" src="https://img.shields.io/github/commit-activity/y/tuhlnaa/XiWind?style=for-the-badge">
-  <img alt="GitHub repo size" src="https://img.shields.io/github/repo-size/tuhlnaa/XiWind?style=for-the-badge">
-  <img alt="Repobeats analytics image" src = https://repobeats.axiom.co/api/embed/856c34834e30a06ac0091e0a9b848abd9343849c.svg >
+  <a href="https://github.com/tuhlnaa/XiWind/commits">
+    <img alt="GitHub last commit" src="https://img.shields.io/github/last-commit/tuhlnaa/XiWind?style=for-the-badge" >
+  </a>
+  <a href="https://github.com/tuhlnaa/XiWind/commits">
+    <img alt="GitHub commit activity" src="https://img.shields.io/github/commit-activity/y/tuhlnaa/XiWind?style=for-the-badge">
+  </a>
+  <a href="https://github.com/tuhlnaa/XiWind">
+    <img alt="GitHub repo size" src="https://img.shields.io/github/repo-size/tuhlnaa/XiWind?style=for-the-badge">
+  </a>
+  <a href="https://github.com/tuhlnaa/XiWind">
+    <img alt="Repobeats analytics image" src = https://repobeats.axiom.co/api/embed/856c34834e30a06ac0091e0a9b848abd9343849c.svg >
+  </a>
 </p>
 
 <br><br>
